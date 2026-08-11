@@ -9,6 +9,6 @@ geopandas
 shapely
 pyproj
 # aktifkan baris di bawah HANYA jika kamu memakai tahap prediksi PyCaret
-# pycaret==3.3.2
-# scikit-learn<1.6
-# numba<0.60
+pycaret==3.3.2
+scikit-learn<1.6
+numba<0.60
