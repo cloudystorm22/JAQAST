@@ -70,9 +70,9 @@ BP_IDN = {
 I_BINS = [0, 50, 100, 200, 300, 500]
 
 ISPU_CATEGORY_BREAKS = [
-    (0, 50, "Baik"),
-    (50, 100, "Sedang"),
-    (100, 200, "Tidak Sehat"),
+    (0, 51, "Baik"),
+    (51, 101, "Sedang"),
+    (101, 200, "Tidak Sehat"),
     (200, 300, "Sangat Tidak Sehat"),
     (300, 501, "Berbahaya"),
 ]
