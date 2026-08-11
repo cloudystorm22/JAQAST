@@ -18,11 +18,11 @@
     --accent: #6FA8FF;
     --map-bg: #0B0F14;
 
-    --c-baik: #4CAF7D;
-    --c-sedang: #F4D35E;
-    --c-tidak-sehat: #F2994A;
-    --c-sangat-tidak-sehat: #EB5757;
-    --c-berbahaya: #7A1F3D;
+    --c-baik: #4A9C59;
+    --c-sedang: #2E6DA4;
+    --c-tidak-sehat: #C9C93E;
+    --c-sangat-tidak-sehat: #C0392B;
+    --c-berbahaya: #141414;
     --c-nodata: #3A4552;
   }
   html.light{
@@ -158,10 +158,10 @@
   <div class="gauge" id="gauge">
     <h2>Skala ISPU</h2>
     <div class="gauge-row"><span class="sw" style="background:var(--c-baik)"></span>Baik<span class="rng">0–50</span></div>
-    <div class="gauge-row"><span class="sw" style="background:var(--c-sedang)"></span>Sedang<span class="rng">50–100</span></div>
-    <div class="gauge-row"><span class="sw" style="background:var(--c-tidak-sehat)"></span>Tidak Sehat<span class="rng">100–200</span></div>
-    <div class="gauge-row"><span class="sw" style="background:var(--c-sangat-tidak-sehat)"></span>Sangat Tidak Sehat<span class="rng">200–300</span></div>
-    <div class="gauge-row"><span class="sw" style="background:var(--c-berbahaya)"></span>Berbahaya<span class="rng">300+</span></div>
+    <div class="gauge-row"><span class="sw" style="background:var(--c-sedang)"></span>Sedang<span class="rng">51–100</span></div>
+    <div class="gauge-row"><span class="sw" style="background:var(--c-tidak-sehat)"></span>Tidak Sehat<span class="rng">101–199</span></div>
+    <div class="gauge-row"><span class="sw" style="background:var(--c-sangat-tidak-sehat)"></span>Sangat Tidak Sehat<span class="rng">200–299</span></div>
+    <div class="gauge-row"><span class="sw" style="background:var(--c-berbahaya)"></span>Berbahaya<span class="rng">300–500</span></div>
     <div class="gauge-row"><span class="sw" style="background:var(--c-nodata)"></span>Tanpa data<span class="rng">—</span></div>
   </div>
 </div>
@@ -176,11 +176,11 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
   const CATEGORY_COLOR = {
-    "Baik": "#4CAF7D",
-    "Sedang": "#F4D35E",
-    "Tidak Sehat": "#F2994A",
-    "Sangat Tidak Sehat": "#EB5757",
-    "Berbahaya": "#7A1F3D",
+    "Baik": "#4A9C59",
+    "Sedang": "#2E6DA4",
+    "Tidak Sehat": "#C9C93E",
+    "Sangat Tidak Sehat": "#C0392B",
+    "Berbahaya": "#141414",
   };
   const NODATA_COLOR_DARK = "#3A4552";
   const NODATA_COLOR_LIGHT = "#C7CDD3";
