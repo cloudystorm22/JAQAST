@@ -1,0 +1,14 @@
+cdsapi>=0.7.4
+numpy
+pandas
+xarray
+h5netcdf
+netCDF4
+cftime
+geopandas
+shapely
+pyproj
+# aktifkan baris di bawah HANYA jika kamu memakai tahap prediksi PyCaret
+# pycaret==3.3.2
+# scikit-learn<1.6
+# numba<0.60
