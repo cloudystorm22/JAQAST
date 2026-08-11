@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>JAQAST — Pantauan Kualitas Udara Jakarta &amp; Tangerang</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0B0F14;
+    --panel: #12181Fcc;
+    --panel-solid: #12181F;
+    --border: rgba(255,255,255,0.08);
+    --text: #E7ECF2;
+    --text-muted: #8B98A5;
+    --accent: #6FA8FF;
+
+    --c-baik: #4CAF7D;
+    --c-sedang: #F4D35E;
+    --c-tidak-sehat: #F2994A;
+    --c-sangat-tidak-sehat: #EB5757;
+    --c-berbahaya: #7A1F3D;
+    --c-nodata: #3A4552;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:'IBM Plex Mono', monospace;}
+  #map{position:absolute; inset:0; background:var(--bg);}
+
+  .leaflet-container{background:var(--bg);}
+
+  .hud{
+    position:absolute; z-index:1000; pointer-events:none;
+  }
+  .hud > *{pointer-events:auto;}
+
+  /* ---------- Header ---------- */
+  .header{
+    top:18px; left:18px; right:18px;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    gap:12px;
+  }
+  .brand{
+    background:var(--panel); backdrop-filter:blur(10px);
+    border:1px solid var(--border); border-radius:10px;
+    padding:14px 18px;
+    max-width:420px;
+  }
+  .brand h1{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:700; font-size:20px; letter-spacing:0.02em;
+    margin:0 0 4px 0; color:var(--text);
+  }
+  .brand h1 .dot{color:var(--c-sedang);}
+  .brand p{
+    margin:0; font-size:12px; line-height:1.5; color:var(--text-muted);
+  }
+
+  /* ---------- Legend / gauge ---------- */
+  .gauge{
+    background:var(--panel); backdrop-filter:blur(10px);
+    border:1px solid var(--border); border-radius:10px;
+    padding:14px 16px; min-width:200px;
+  }
+  .gauge h2{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:11px; text-transform:uppercase; letter-spacing:0.12em;
+    color:var(--text-muted); margin:0 0 10px 0; font-weight:600;
+  }
+  .gauge-row{
+    display:flex; align-items:center; gap:8px; font-size:12px;
+    padding:3px 0; color:var(--text);
+  }
+  .gauge-row .sw{
+    width:12px; height:12px; border-radius:3px; flex:none;
+  }
+  .gauge-row .rng{color:var(--text-muted); font-size:10.5px; margin-left:auto;}
+
+  /* ---------- Footer status ---------- */
+  .footer{
+    bottom:18px; left:18px;
+    background:var(--panel); backdrop-filter:blur(10px);
+    border:1px solid var(--border); border-radius:10px;
+    padding:10px 14px; font-size:11px; color:var(--text-muted);
+    display:flex; align-items:center; gap:8px;
+  }
+  .footer .pulse{
+    width:7px; height:7px; border-radius:50%; background:var(--c-baik);
+    box-shadow:0 0 0 0 rgba(76,175,125,0.6);
+    animation:pulse 2.2s infinite;
+  }
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(76,175,125,0.5);}
+    70%{box-shadow:0 0 0 8px rgba(76,175,125,0);}
+    100%{box-shadow:0 0 0 0 rgba(76,175,125,0);}
+  }
+
+  /* ---------- Popup readout ---------- */
+  .leaflet-popup-content-wrapper{
+    background:var(--panel-solid); color:var(--text);
+    border:1px solid var(--border); border-radius:10px;
+  }
+  .leaflet-popup-tip{background:var(--panel-solid);}
+  .leaflet-popup-content{margin:14px 16px; font-family:'IBM Plex Mono', monospace;}
+  .readout-title{
+    font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:15px;
+    margin-bottom:2px;
+  }
+  .readout-badge{
+    display:inline-block; font-size:10.5px; font-weight:600; letter-spacing:0.04em;
+    padding:2px 8px; border-radius:20px; margin:6px 0 10px 0; text-transform:uppercase;
+  }
+  .readout-big{
+    font-family:'Space Grotesk', sans-serif; font-size:34px; font-weight:700; line-height:1;
+  }
+  .readout-big-label{font-size:10px; color:var(--text-muted); letter-spacing:0.08em; text-transform:uppercase;}
+  .readout-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:6px 14px;
+    margin-top:12px; padding-top:10px; border-top:1px solid var(--border);
+    font-size:11.5px;
+  }
+  .readout-grid div span{color:var(--text-muted); display:block; font-size:9.5px; text-transform:uppercase; letter-spacing:0.06em;}
+
+  @media (max-width: 640px){
+    .header{flex-direction:column;}
+    .brand{max-width:none;}
+    .gauge{min-width:0;}
+  }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div class="hud header">
+  <div class="brand">
+    <h1>JAQAST<span class="dot">·</span></h1>
+    <p>Pantauan kualitas udara harian — Jakarta &amp; Kota Tangerang. Sumber: CAMS (Copernicus), dihitung ke skala ISPU per wilayah.</p>
+  </div>
+  <div class="gauge" id="gauge">
+    <h2>Skala ISPU</h2>
+    <div class="gauge-row"><span class="sw" style="background:var(--c-baik)"></span>Baik<span class="rng">0–50</span></div>
+    <div class="gauge-row"><span class="sw" style="background:var(--c-sedang)"></span>Sedang<span class="rng">50–100</span></div>
+    <div class="gauge-row"><span class="sw" style="background:var(--c-tidak-sehat)"></span>Tidak Sehat<span class="rng">100–200</span></div>
+    <div class="gauge-row"><span class="sw" style="background:var(--c-sangat-tidak-sehat)"></span>Sangat Tidak Sehat<span class="rng">200–300</span></div>
+    <div class="gauge-row"><span class="sw" style="background:var(--c-berbahaya)"></span>Berbahaya<span class="rng">300+</span></div>
+    <div class="gauge-row"><span class="sw" style="background:var(--c-nodata)"></span>Tanpa data<span class="rng">—</span></div>
+  </div>
+</div>
+
+<div class="hud footer" id="footer">
+  <span class="pulse"></span>
+  <span id="footer-text">Memuat data...</span>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const CATEGORY_COLOR = {
+    "Baik": "#4CAF7D",
+    "Sedang": "#F4D35E",
+    "Tidak Sehat": "#F2994A",
+    "Sangat Tidak Sehat": "#EB5757",
+    "Berbahaya": "#7A1F3D",
+  };
+  const NODATA_COLOR = "#3A4552";
+
+  const map = L.map('map', {
+    zoomControl: false,
+    attributionControl: true,
+  }).setView([-6.18, 106.75], 11);
+
+  L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+  // basemap gelap — cocok dengan tema instrumen
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+    subdomains: 'abcd',
+    maxZoom: 19,
+  }).addTo(map);
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png', {
+    subdomains: 'abcd',
+    maxZoom: 19,
+    opacity: 0.6,
+  }).addTo(map);
+
+  function styleFeature(feature) {
+    const kategori = feature.properties.ispu_kategori;
+    const color = CATEGORY_COLOR[kategori] || NODATA_COLOR;
+    return {
+      fillColor: color,
+      fillOpacity: 0.55,
+      color: color,
+      weight: 1,
+      opacity: 0.9,
+    };
+  }
+
+  function fmt(v, digits = 0) {
+    if (v === null || v === undefined || Number.isNaN(v)) return "—";
+    return Number(v).toFixed(digits);
+  }
+
+  function popupHTML(p) {
+    const kategori = p.ispu_kategori || "Tanpa data";
+    const color = CATEGORY_COLOR[kategori] || NODATA_COLOR;
+    return `
+      <div class="readout-title">${p.wilayah || p.name || "-"}</div>
+      <span class="readout-badge" style="background:${color}22; color:${color}; border:1px solid ${color}66;">${kategori}</span>
+      <div class="readout-big">${fmt(p.ispu_total)}<span style="font-size:14px; color:var(--text-muted); font-weight:500;"> ISPU</span></div>
+      <div class="readout-big-label">indeks standar pencemar udara &middot; ${p.date_wib || "-"}</div>
+      <div class="readout-grid">
+        <div><span>PM10</span>${fmt(p.ispu_pm10)}</div>
+        <div><span>SO2</span>${fmt(p.ispu_so2)}</div>
+        <div><span>CO</span>${fmt(p.ispu_co)}</div>
+        <div><span>O3</span>${fmt(p.ispu_o3)}</div>
+        <div><span>NO2</span>${fmt(p.ispu_no2)}</div>
+        <div><span>Suhu rata²</span>${fmt(p.tt_air_avg,1)}&deg;C</div>
+      </div>
+    `;
+  }
+
+  function loadGeoJSON() {
+    fetch('./data/latest.geojson?t=' + Date.now())
+      .then(r => { if (!r.ok) throw new Error('fetch geojson gagal'); return r.json(); })
+      .then(geojson => {
+        L.geoJSON(geojson, {
+          style: styleFeature,
+          onEachFeature: (feature, layer) => {
+            layer.bindPopup(popupHTML(feature.properties));
+            layer.on('mouseover', () => layer.setStyle({ fillOpacity: 0.8, weight: 2 }));
+            layer.on('mouseout', () => layer.setStyle({ fillOpacity: 0.55, weight: 1 }));
+          },
+        }).addTo(map);
+      })
+      .catch(err => {
+        document.getElementById('footer-text').textContent = 'Gagal memuat data — coba lagi nanti.';
+        console.error(err);
+      });
+  }
+
+  function loadMeta() {
+    fetch('./data/latest.json?t=' + Date.now())
+      .then(r => { if (!r.ok) throw new Error('fetch meta gagal'); return r.json(); })
+      .then(meta => {
+        const dt = new Date(meta.generated_at_wib);
+        const dtStr = dt.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' });
+        document.getElementById('footer-text').textContent =
+          `Update terakhir: ${dtStr} WIB · ${meta.n_wilayah_dengan_data}/${meta.n_wilayah} wilayah bersedia data`;
+      })
+      .catch(() => {
+        document.getElementById('footer-text').textContent = 'Status pembaruan tidak tersedia.';
+      });
+  }
+
+  loadGeoJSON();
+  loadMeta();
+</script>
+</body>
+</html>
