@@ -392,7 +392,15 @@ def run_prediction(hasil_final: pd.DataFrame) -> pd.DataFrame:
         log("Model PyCaret tidak ditemukan — lewati tahap prediksi (hanya ISPU + meteo yang dipakai).")
         return hasil_final
 
-    from pycaret.classification import load_model, predict_model
+    try:
+        from pycaret.classification import load_model, predict_model
+    except ModuleNotFoundError:
+        log(
+            "⚠️ File model ada, tapi paket 'pycaret' belum terpasang — tahap prediksi DILEWATI, "
+            "bukan dianggap gagal. Untuk mengaktifkan prediksi, buka pipeline/requirements.txt, "
+            "hapus tanda # di baris pycaret/scikit-learn/numba, lalu commit ulang."
+        )
+        return hasil_final
 
     df_in = hasil_final.rename(columns={
         "ispu_pm10": "pm10", "ispu_so2": "so2", "ispu_co": "co", "ispu_o3": "o3", "ispu_no2": "no2",
@@ -425,34 +433,85 @@ def run_prediction(hasil_final: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # 6) TULIS OUTPUT UNTUK WEBSITE
 # ---------------------------------------------------------------------------
+def _json_safe(v):
+    """Bikin nilai aman untuk json.dumps (NaN/Inf -> null, numpy types -> python native)."""
+    if v is None:
+        return None
+    if isinstance(v, float) and (np.isnan(v) or np.isinf(v)):
+        return None
+    if isinstance(v, (np.floating,)):
+        f = float(v)
+        return None if (np.isnan(f) or np.isinf(f)) else f
+    if isinstance(v, (np.integer,)):
+        return int(v)
+    if isinstance(v, (np.bool_,)):
+        return bool(v)
+    if isinstance(v, (pd.Timestamp, datetime)):
+        return v.strftime("%Y-%m-%d")
+    return v
+
+
 def write_outputs(gdf, hasil_final: pd.DataFrame):
-    import geopandas as gpd
+    """
+    Menulis docs/data/latest.geojson berisi, untuk tiap wilayah, SATU polygon
+    dengan properti "series": daftar data harian (ISPU + meteo) selama beberapa
+    hari ke depan (hasil forecast CAMS). Frontend memakai "series" ini untuk
+    date picker, jadi tidak perlu fetch ulang / duplikasi geometry per tanggal.
+    """
+    hasil_final = hasil_final.copy()
+    hasil_final["date_wib"] = pd.to_datetime(hasil_final["date_wib"]).dt.strftime("%Y-%m-%d")
+    hasil_final["ispu_kategori"] = hasil_final["ispu_total"].apply(ispu_category)
 
-    latest = (hasil_final.sort_values(["wilayah", "date_wib"])
-              .groupby("wilayah", as_index=False).tail(1))
+    series_cols = [c for c in [
+        "date_wib", "ispu_total", "ispu_kategori",
+        "ispu_pm10", "ispu_so2", "ispu_co", "ispu_o3", "ispu_no2",
+        "tt_air_avg", "rh_avg", "rr", "ws_avg", "provisional",
+    ] if c in hasil_final.columns]
 
-    merged = gdf.merge(latest, left_on="name", right_on="wilayah", how="left")
-    merged["ispu_kategori"] = merged["ispu_total"].apply(ispu_category)
+    series_by_wilayah = {}
+    all_dates = set()
+    for wilayah, sub in hasil_final.sort_values("date_wib").groupby("wilayah"):
+        recs = [{k: _json_safe(v) for k, v in rec.items()} for rec in sub[series_cols].to_dict(orient="records")]
+        series_by_wilayah[wilayah] = recs
+        all_dates.update(sub["date_wib"].tolist())
+
+    features = []
+    n_dengan_data = 0
+    for _, row in gdf.iterrows():
+        name = str(row["name"])
+        series = series_by_wilayah.get(name, [])
+        latest = series[-1] if series else {}
+        if series:
+            n_dengan_data += 1
+        props = {"wilayah": name, "series": series}
+        for k in series_cols:
+            props[k] = latest.get(k)
+        features.append({
+            "type": "Feature",
+            "geometry": json.loads(json.dumps(row.geometry.__geo_interface__)),
+            "properties": props,
+        })
+
+    fc = {"type": "FeatureCollection", "features": features}
 
     OUT_GEOJSON.parent.mkdir(parents=True, exist_ok=True)
-    # tulis ke file sementara dulu -> baru replace, supaya website tidak pernah baca file setengah-jadi
     tmp_path = OUT_GEOJSON.with_suffix(".tmp.geojson")
-    merged.to_file(tmp_path, driver="GeoJSON")
+    tmp_path.write_text(json.dumps(fc, ensure_ascii=False), encoding="utf-8")
     tmp_path.replace(OUT_GEOJSON)
-    log(f"GeoJSON ditulis: {OUT_GEOJSON} ({len(merged)} wilayah)")
+    log(f"GeoJSON ditulis: {OUT_GEOJSON} ({len(features)} wilayah, {len(all_dates)} tanggal tersedia)")
 
     meta = {
         "generated_at_wib": datetime.now(TZ).isoformat(),
-        "n_wilayah": int(len(merged)),
-        "n_wilayah_dengan_data": int(merged["ispu_total"].notna().sum()),
+        "n_wilayah": int(len(features)),
+        "n_wilayah_dengan_data": int(n_dengan_data),
+        "available_dates": sorted(all_dates),
         "sumber": "CAMS (Copernicus Atmosphere Monitoring Service)",
     }
     OUT_META.write_text(json.dumps(meta, indent=2, ensure_ascii=False))
     log(f"Metadata ditulis: {OUT_META}")
 
     OUT_HISTORY_CSV.parent.mkdir(parents=True, exist_ok=True)
-    cols_hist = [c for c in ["wilayah", "date_wib", "ispu_total", "ispu_kategori", "ispu_pm10", "ispu_so2", "ispu_co", "ispu_o3", "ispu_no2"] if c in merged.columns]
-    hist_new = merged[cols_hist]
+    hist_new = hasil_final[["wilayah"] + series_cols]
     if OUT_HISTORY_CSV.exists():
         hist_old = pd.read_csv(OUT_HISTORY_CSV)
         hist_all = pd.concat([hist_old, hist_new], ignore_index=True)
