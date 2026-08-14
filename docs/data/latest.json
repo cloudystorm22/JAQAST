@@ -1,13 +1,13 @@
 {
-  "generated_at_wib": "2026-08-13T12:44:30.258319+07:00",
+  "generated_at_wib": "2026-08-14T12:29:00.160658+07:00",
   "n_wilayah": 371,
   "n_wilayah_dengan_data": 371,
   "available_dates": [
-    "2026-08-12",
     "2026-08-13",
     "2026-08-14",
     "2026-08-15",
-    "2026-08-16"
+    "2026-08-16",
+    "2026-08-17"
   ],
   "sumber": "CAMS (Copernicus Atmosphere Monitoring Service)"
 }
